@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+   <extension
+         point="org.eclipse.ui.commands">
+      <category
+            name="Sample Category"
+            id="ru.idealplm.xml2pdf2.commands.category">
+      </category>
+      <command
+            name="Sample Command"
+            categoryId="ru.idealplm.xml2pdf2.commands.category"
+            id="ru.idealplm.xml2pdf2.commands.sampleCommand">
+      </command>
+   </extension>
+   <extension
+         point="org.eclipse.ui.handlers">
+      <handler
+            commandId="ru.idealplm.xml2pdf2.commands.sampleCommand"
+            class="ru.idealplm.xml2pdf2.handlers.PDFBuilder">
+      </handler>
+   </extension>
+   <extension
+         point="org.eclipse.ui.bindings">
+      <key
+            commandId="ru.idealplm.xml2pdf2.commands.sampleCommand"
+            contextId="org.eclipse.ui.contexts.window"
+            sequence="M1+6"
+            schemeId="org.eclipse.ui.defaultAcceleratorConfiguration">
+      </key>
+   </extension>
+</plugin>

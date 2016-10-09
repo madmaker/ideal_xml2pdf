@@ -1,19 +1,11 @@
 package ru.idealplm.xml2pdf2.handlers;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.Reader;
-import java.net.MalformedURLException;
-import java.net.URISyntaxException;
-import java.util.concurrent.CountDownLatch;
 
 import javax.xml.transform.Result;
 import javax.xml.transform.Source;
@@ -27,7 +19,6 @@ import javax.xml.transform.stream.StreamSource;
 import org.apache.avalon.framework.configuration.Configuration;
 import org.apache.avalon.framework.configuration.ConfigurationException;
 import org.apache.avalon.framework.configuration.DefaultConfigurationBuilder;
-import org.apache.fop.apps.FOPException;
 import org.apache.fop.apps.FOUserAgent;
 import org.apache.fop.apps.Fop;
 import org.apache.fop.apps.FopFactory;
@@ -38,43 +29,35 @@ import ru.idealplm.utils.common.ReportBuilder;
 public class PDFBuilder implements ReportBuilder, Runnable {
 
 	private FopFactory fopFactory = null;
+	private Transformer transformer = null;
 	private OutputStream out = null;
 	private Result saxResult = null;
-	private InputStream xslTemplateStream = null;
-	private File outPdf = null;
+	private InputStream xsltTemplateStream = null;
 	private InputStream fontConfigStream = null;
-	// private CountDownLatch latch = null;
+	private File outPdf = null;
 	private File xmlFile = null;
-	private boolean finishFlag = false;
+	private Object lock;
 
-	private Transformer transformer = null;
-	Result res = null;
-
-	public PDFBuilder(InputStream xsltStream, InputStream fontConfigStream)
-			throws IOException, SAXException, TransformerConfigurationException {
-		this.xslTemplateStream = xsltStream;
+	public PDFBuilder(InputStream xsltTemplateStream, InputStream fontConfigStream) throws Exception {
+		this.xsltTemplateStream = xsltTemplateStream;
 		this.fontConfigStream = fontConfigStream;
 
-		System.out.println(" *** " + (this.xslTemplateStream == null) + " "
-				+ (this.fontConfigStream == null));
+		if(xsltTemplateStream==null || fontConfigStream==null)
+			throw new Exception("Null stream is not allowed.");
 
 		Thread pdfThread = new Thread(this);
 		pdfThread.start();
-		System.out.println("PDF Thread in constructor started...");
 	}
 
 	@Override
 	public File getReport() {
-		System.out.println("getting report...");
-		while (!finishFlag) {
-		}
-		System.out.println("returning pdf");
 		return outPdf;
 	}
 
 	@Override
-	public void passSourceFile(File xmlFile) {
+	public void passSourceFile(File xmlFile, Object lock) {
 		this.xmlFile = xmlFile;
+		this.lock = lock;
 		synchronized (this) {
 			this.notify();
 		}
@@ -87,11 +70,9 @@ public class PDFBuilder implements ReportBuilder, Runnable {
 			DefaultConfigurationBuilder configurationBuilder = new DefaultConfigurationBuilder();
 			Configuration configuration = configurationBuilder
 					.build(fontConfigStream);
-			System.out.println(" :: " + (configuration == null));
 			fopFactory = FopFactory.newInstance();
 			fopFactory.setUserConfig(configuration);
-			fopFactory.setBaseURL(outPdf.getAbsolutePath()+"\\");
-			System.out.println("~~~~~~"+fopFactory.getBaseURL());
+			fopFactory.setBaseURL(outPdf.getParentFile().getAbsolutePath()+"\\");
 			FOUserAgent foUserAgent = fopFactory.newFOUserAgent();
 			foUserAgent
 					.getFactory()
@@ -102,16 +83,17 @@ public class PDFBuilder implements ReportBuilder, Runnable {
 			Fop fop = fopFactory.newFop("application/pdf", foUserAgent, out);
 			TransformerFactory factory = TransformerFactory.newInstance();
 			transformer = factory.newTransformer(new StreamSource(
-					xslTemplateStream));
+					xsltTemplateStream));
 			transformer.setParameter("versionParam", "1.0");
 			saxResult = new SAXResult(fop.getDefaultHandler());
-			System.out.println("Before wait...");
 			synchronized (this) {
 				this.wait();
 			}
-			System.out.println("after wait");
 			transformer.transform(new StreamSource(xmlFile), saxResult);
-			finishFlag = true;
+			if (out != null)
+				out.close();
+			if (fopFactory != null)
+				fopFactory.getImageManager().getCache().clearCache();
 		} catch (IOException e) {
 			System.out.println("1");
 			e.printStackTrace();
@@ -131,7 +113,9 @@ public class PDFBuilder implements ReportBuilder, Runnable {
 			System.out.println("6");
 			e.printStackTrace();
 		}
-		System.out.println("PDFBuilder run method() finished ...");
+		synchronized (lock) {			
+			lock.notify();
+		}
 	}
 
 	public static File xml2pdf(File xmlFile, InputStream xsltStream,

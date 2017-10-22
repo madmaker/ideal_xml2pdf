@@ -24,9 +24,7 @@ import org.apache.fop.apps.Fop;
 import org.apache.fop.apps.FopFactory;
 import org.xml.sax.SAXException;
 
-import ru.idealplm.utils.common.ReportBuilder;
-
-public class PDFBuilder implements ReportBuilder, Runnable {
+public class PDFBuilder implements Runnable {
 
 	private FopFactory fopFactory = null;
 	private Transformer transformer = null;
@@ -49,12 +47,10 @@ public class PDFBuilder implements ReportBuilder, Runnable {
 		pdfThread.start();
 	}
 
-	@Override
 	public File getReport() {
 		return outPdf;
 	}
 
-	@Override
 	public void passSourceFile(File xmlFile, Object lock) {
 		this.xmlFile = xmlFile;
 		this.lock = lock;
